@@ -87,8 +87,16 @@ function normalizeLibraryRecord(record={}){
     features:Array.isArray(record.features)?record.features.map(feature=>({
       id:feature.id||id(),name:String(feature.name||""),description:String(feature.description||""),
       effects:Array.isArray(feature.effects)?feature.effects.map(effect=>({
-        id:effect.id||id(),type:String(effect.type||"none"),amount:numberOr(effect.amount,0),label:String(effect.label||"")
-      })):[{id:id(),type:String(feature.effect||"none"),amount:numberOr(feature.amount,0),label:""}]
+        id:effect.id||id(),type:String(effect.type||"none"),amount:numberOr(effect.amount,0),label:String(effect.label||""),
+        roll:{
+          name:String(effect.roll?.name||effect.label||""),
+          diceCount:clamp(numberOr(effect.roll?.diceCount,1),1,50),
+          diceSides:Math.max(2,numberOr(effect.roll?.diceSides,20)),
+          modifier:numberOr(effect.roll?.modifier,effect.type==="special-roll"?effect.amount:0),
+          advantage:clamp(numberOr(effect.roll?.advantage,0),-10,10),
+          damageType:String(effect.roll?.damageType||"")
+        }
+      })):[{id:id(),type:String(feature.effect||"none"),amount:numberOr(feature.amount,0),label:"",roll:{name:"",diceCount:1,diceSides:20,modifier:0,advantage:0,damageType:""}}]
     })):[],
     updatedAt:record.updatedAt||new Date().toISOString()
   }
@@ -229,6 +237,20 @@ function rollDamage(a){
   const count=Math.max(1,Number(a.damageCount)||1),sides=Math.max(2,Number(a.damageSides)||2),mod=Number(a.damageMod)||0;
   const rolls=Array.from({length:Math.min(count,50)},()=>rollDie(sides));
   return{count,sides,mod,rolls,total:rolls.reduce((x,y)=>x+y,0)+mod}
+}
+function rollSpecial(config={}){
+  const count=clamp(Number(config.diceCount)||1,1,50);
+  const sides=Math.max(2,Number(config.diceSides)||20);
+  const modifier=Number(config.modifier)||0;
+  const advantage=clamp(Number(config.advantage)||0,-10,10);
+  let rolls=[];
+  let kept=[];
+  for(let index=0;index<count;index++){
+    const pool=Array.from({length:1+Math.abs(advantage)},()=>rollDie(sides));
+    rolls.push(pool);
+    kept.push(advantage>0?Math.max(...pool):advantage<0?Math.min(...pool):pool[0]);
+  }
+  return{count,sides,modifier,advantage,rolls,kept,total:kept.reduce((sum,value)=>sum+value,0)+modifier};
 }
 function hpRemaining(a){return Math.max(0,a.hpMax-a.hpMarked)}
 function stressRemaining(a){return Math.max(0,a.stressMax-a.stressMarked)}
@@ -650,11 +672,16 @@ function applyFeatureEffects(actor,feature){
       case "next-attack": actor.pendingAttackBonus=(Number(actor.pendingAttackBonus)||0)+amount; break;
       case "next-roll": actor.pendingRollBonus=(Number(actor.pendingRollBonus)||0)+amount; break;
       case "special-roll": {
-        const d20=rollDie(20);
+        const config=effect.roll||{};
+        const result=rollSpecial(config);
         const experience=consumeRollBonuses(actor,"roll");
-        const total=d20+amount+experience.total;
-        specialResult={label:effect.label||feature.name||"Special Roll",roll:d20,modifier:amount+experience.total,total};
-        actor.lastRoll=`<b>${esc(specialResult.label)}:</b> d20 [${d20}] ${signed(specialResult.modifier)} → <b>${total}</b>.`;
+        result.total+=experience.total;
+        const label=config.name||effect.label||feature.name||"Special Roll";
+        const pools=result.rolls.map((pool,index)=>pool.length>1?`[${pool.join(", ")}] → ${result.kept[index]}`:`${result.kept[index]}`).join(" + ");
+        const totalModifier=result.modifier+experience.total;
+        const typeLabel=config.damageType?` · ${esc(config.damageType)}`:"";
+        specialResult={label,result,totalModifier};
+        actor.lastRoll=`<b>${esc(label)}:</b> ${result.count}d${result.sides} (${pools}) ${signed(totalModifier)} → <b>${result.total}</b>${typeLabel}.`;
         break;
       }
     }

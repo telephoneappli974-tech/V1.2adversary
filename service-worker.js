@@ -1,4 +1,4 @@
-const CACHE_NAME="daggerheart-manager-v9-secondary-features";
+const CACHE_NAME="daggerheart-manager-v10-real-special-rolls";
 const APP_FILES=[
   "./",
   "./index.html",

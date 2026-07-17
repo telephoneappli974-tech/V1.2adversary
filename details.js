@@ -13,7 +13,7 @@ const text={
     experienceName:"Nom de l’expérience",bonus:"Bonus",featureName:"Nom de la feature",
     description:"Description",noEffect:"Aucun effet automatique",fearRemove:"Retirer de la Fear",
     fearAdd:"Ajouter de la Fear",stressRemove:"Retirer du Stress",nextAttack:"Bonus à la prochaine attaque",
-    nextRoll:"Bonus au prochain jet",specialRoll:"Jet spécial",effect:"Effet",addEffect:"+ Ajouter un effet",specialRollName:"Nom du jet",specialRollModifier:"Modificateur",experiencesHelp:"Une expérience cochée pendant le combat ajoute son bonus au prochain jet et retire 1 Fear.",
+    nextRoll:"Bonus au prochain jet",specialRoll:"Jet spécial",effect:"Effet",addEffect:"+ Ajouter un effet",specialRollName:"Nom du jet",specialRollDiceCount:"Nombre de dés",specialRollDiceSides:"Type de dé",specialRollModifier:"Modificateur",specialRollAdvantage:"Avantage / désavantage",specialRollDamageType:"Catégorie / type",experiencesHelp:"Une expérience cochée pendant le combat ajoute son bonus au prochain jet et retire 1 Fear.",
     difficulty:"Difficulté",thresholds:"Seuils",hp:"HP",stress:"Stress",attack:"Attaque",damage:"Dégâts",
     rollType:"Type de jet",normal:"Jet normal",conditions:"États",hidden:"Caché",vulnerable:"Vulnérable",restrained:"Entravé",none:"Aucun",
     showRole:"Adversary / Ally",showName:"Nom",showDifficulty:"Difficulté",showThresholds:"Seuils",showHpStress:"HP / Stress",showAttack:"Attaque",showDamage:"Dégâts",showConditions:"États",showRollType:"Type de jet",showStats:"Stats supplémentaires",showTier:"Tier",showType:"Type",showWeapon:"Type d’arme",showDamageType:"Type de dégâts",showExperiences:"Expériences",showFeatures:"Features"
@@ -28,7 +28,7 @@ const text={
     experienceName:"Experience name",bonus:"Bonus",featureName:"Feature name",
     description:"Description",noEffect:"No automatic effect",fearRemove:"Remove Fear",
     fearAdd:"Add Fear",stressRemove:"Remove Stress",nextAttack:"Bonus to next attack",
-    nextRoll:"Bonus to next roll",specialRoll:"Special roll",effect:"Effect",addEffect:"+ Add effect",specialRollName:"Roll name",specialRollModifier:"Modifier",experiencesHelp:"A checked experience adds its bonus to the next roll and spends 1 Fear.",
+    nextRoll:"Bonus to next roll",specialRoll:"Special roll",effect:"Effect",addEffect:"+ Add effect",specialRollName:"Roll name",specialRollDiceCount:"Dice count",specialRollDiceSides:"Die type",specialRollModifier:"Modifier",specialRollAdvantage:"Advantage / disadvantage",specialRollDamageType:"Category / type",experiencesHelp:"A checked experience adds its bonus to the next roll and spends 1 Fear.",
     difficulty:"Difficulty",thresholds:"Thresholds",hp:"HP",stress:"Stress",attack:"Attack",damage:"Damage",
     rollType:"Roll Type",normal:"Normal roll",conditions:"Conditions",hidden:"Hidden",vulnerable:"Vulnerable",restrained:"Restrained",none:"None",
     showRole:"Adversary / Ally",showName:"Name",showDifficulty:"Difficulty",showThresholds:"Thresholds",showHpStress:"HP / Stress",showAttack:"Attack",showDamage:"Damage",showConditions:"Conditions",showRollType:"Roll Type",showStats:"Additional Statistics",showTier:"Tier",showType:"Type",showWeapon:"Weapon Type",showDamageType:"Damage Type",showExperiences:"Experiences",showFeatures:"Features"
@@ -143,16 +143,40 @@ function effectOptions(selected){
 function renderFeatureEffects(feature,container){
   container.innerHTML="";
   feature.effects.forEach(effect=>{
+    effect.roll=effect.roll||{name:effect.label||"",diceCount:1,diceSides:20,modifier:Number(effect.amount)||0,advantage:0,damageType:""};
     const row=document.createElement("div");row.className="feature-effect-row";
     row.innerHTML=`<select class="feature-effect">${effectOptions(effect.type)}</select>
       <input class="feature-amount" type="number" value="${Number(effect.amount)||0}" placeholder="${esc(text.value)}">
-      <input class="feature-label" value="${esc(effect.label||"")}" placeholder="${esc(text.specialRollName)}" ${effect.type==="special-roll"?"":"hidden"}>`;
+      <div class="special-roll-editor" ${effect.type==="special-roll"?"":"hidden"}>
+        <label><span>${esc(text.specialRollName)}</span><input class="special-name" value="${esc(effect.roll.name||"")}" placeholder="${esc(text.specialRollName)}"></label>
+        <label><span>${esc(text.specialRollDiceCount)}</span><input class="special-count" type="number" min="1" max="50" value="${Number(effect.roll.diceCount)||1}"></label>
+        <label><span>${esc(text.specialRollDiceSides)}</span><select class="special-sides">${[4,6,8,10,12,20,100].map(side=>`<option value="${side}" ${Number(effect.roll.diceSides)===side?"selected":""}>d${side}</option>`).join("")}</select></label>
+        <label><span>${esc(text.specialRollModifier)}</span><input class="special-modifier" type="number" value="${Number(effect.roll.modifier)||0}"></label>
+        <label><span>${esc(text.specialRollAdvantage)}</span><input class="special-advantage" type="number" min="-10" max="10" value="${Number(effect.roll.advantage)||0}"></label>
+        <label><span>${esc(text.specialRollDamageType)}</span><select class="special-damage-type">
+          <option value="" ${!effect.roll.damageType?"selected":""}>—</option>
+          <option value="physical" ${effect.roll.damageType==="physical"?"selected":""}>Physical</option>
+          <option value="magic" ${effect.roll.damageType==="magic"?"selected":""}>Magic</option>
+          <option value="tech" ${effect.roll.damageType==="tech"?"selected":""}>Tech</option>
+        </select></label>
+      </div>`;
     const select=row.querySelector(".feature-effect");
     const amount=row.querySelector(".feature-amount");
-    const label=row.querySelector(".feature-label");
-    select.addEventListener("change",event=>{effect.type=event.target.value;label.hidden=effect.type!=="special-roll";saveState()});
+    const specialEditor=row.querySelector(".special-roll-editor");
+    function updateMode(){
+      const special=effect.type==="special-roll";
+      specialEditor.hidden=!special;
+      amount.hidden=special;
+    }
+    select.addEventListener("change",event=>{effect.type=event.target.value;updateMode();saveState()});
     amount.addEventListener("input",event=>{effect.amount=Number(event.target.value)||0;saveState()});
-    label.addEventListener("input",event=>{effect.label=event.target.value;saveState()});
+    row.querySelector(".special-name").addEventListener("input",event=>{effect.roll.name=event.target.value;effect.label=event.target.value;saveState()});
+    row.querySelector(".special-count").addEventListener("input",event=>{effect.roll.diceCount=Math.max(1,Number(event.target.value)||1);saveState()});
+    row.querySelector(".special-sides").addEventListener("change",event=>{effect.roll.diceSides=Number(event.target.value)||20;saveState()});
+    row.querySelector(".special-modifier").addEventListener("input",event=>{effect.roll.modifier=Number(event.target.value)||0;saveState()});
+    row.querySelector(".special-advantage").addEventListener("input",event=>{effect.roll.advantage=Math.max(-10,Math.min(10,Number(event.target.value)||0));saveState()});
+    row.querySelector(".special-damage-type").addEventListener("change",event=>{effect.roll.damageType=event.target.value;saveState()});
+    updateMode();
     row.appendChild(removeButton(()=>{feature.effects=feature.effects.filter(entry=>entry.id!==effect.id);saveState();renderFeatureEffects(feature,container)}));
     container.appendChild(row);
   });
@@ -169,7 +193,7 @@ function renderFeatures(){
     row.querySelector(".feature-description").addEventListener("input",event=>{feature.description=event.target.value;saveState()});
     const effectsRoot=row.querySelector(".feature-effects");
     renderFeatureEffects(feature,effectsRoot);
-    row.querySelector(".add-effect").addEventListener("click",event=>{event.preventDefault();event.stopPropagation();feature.effects.push({id:uid(),type:"none",amount:0,label:""});saveState();renderFeatureEffects(feature,effectsRoot)});
+    row.querySelector(".add-effect").addEventListener("click",event=>{event.preventDefault();event.stopPropagation();feature.effects.push({id:uid(),type:"none",amount:0,label:"",roll:{name:"",diceCount:1,diceSides:20,modifier:0,advantage:0,damageType:""}});saveState();renderFeatureEffects(feature,effectsRoot)});
     row.appendChild(removeButton(event=>{item.features=item.features.filter(entry=>entry.id!==feature.id);saveState();renderFeatures()}));
     featuresList.appendChild(row);
   });

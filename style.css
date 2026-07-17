@@ -928,3 +928,19 @@ main{max-width:1550px;margin:auto;padding:1rem}
   .feature-effect-row{grid-template-columns:1fr}
   .feature-effect-row button{width:100%}
 }
+
+.special-roll-editor{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.45rem;
+  padding:.55rem;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#111318;
+}
+.special-roll-editor[hidden]{display:none!important}
+.special-roll-editor label{display:grid;gap:.2rem;font-size:.72rem;color:var(--muted)}
+.special-roll-editor input,.special-roll-editor select{width:100%}
+.feature-effect-row>.feature-amount[hidden]{display:none!important}
+@media(max-width:700px){.special-roll-editor{grid-template-columns:1fr 1fr}}
