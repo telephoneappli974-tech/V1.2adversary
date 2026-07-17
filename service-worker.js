@@ -1,4 +1,4 @@
-const CACHE_NAME="daggerheart-manager-v8-visibility-database";
+const CACHE_NAME="daggerheart-manager-v9-secondary-features";
 const APP_FILES=[
   "./",
   "./index.html",

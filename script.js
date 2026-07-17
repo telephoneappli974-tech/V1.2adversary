@@ -84,7 +84,12 @@ function normalizeLibraryRecord(record={}){
     },
     extraStats:Array.isArray(record.extraStats)?record.extraStats.map(stat=>({id:stat.id||id(),name:String(stat.name||""),value:String(stat.value||"")})):[],
     experiences:Array.isArray(record.experiences)?record.experiences.map(exp=>({id:exp.id||id(),name:String(exp.name||""),bonus:numberOr(exp.bonus,0)})):[],
-    features:Array.isArray(record.features)?record.features.map(feature=>({id:feature.id||id(),name:String(feature.name||""),description:String(feature.description||""),effect:String(feature.effect||"none"),amount:numberOr(feature.amount,1)})):[],
+    features:Array.isArray(record.features)?record.features.map(feature=>({
+      id:feature.id||id(),name:String(feature.name||""),description:String(feature.description||""),
+      effects:Array.isArray(feature.effects)?feature.effects.map(effect=>({
+        id:effect.id||id(),type:String(effect.type||"none"),amount:numberOr(effect.amount,0),label:String(effect.label||"")
+      })):[{id:id(),type:String(feature.effect||"none"),amount:numberOr(feature.amount,0),label:""}]
+    })):[],
     updatedAt:record.updatedAt||new Date().toISOString()
   }
 }
@@ -634,6 +639,63 @@ function labelFor(type){
   return type==="ally"?t("ally"):t("adversary");
 }
 
+function applyFeatureEffects(actor,feature){
+  let specialResult=null;
+  (feature.effects||[]).forEach(effect=>{
+    const amount=Number(effect.amount)||0;
+    switch(effect.type){
+      case "fear-remove": state.fear=clamp(state.fear-Math.abs(amount||1),0,MAX_FEAR); break;
+      case "fear-add": state.fear=clamp(state.fear+Math.abs(amount||1),0,MAX_FEAR); break;
+      case "stress-remove": actor.stressMarked=clamp(actor.stressMarked-Math.abs(amount||1),0,actor.stressMax); break;
+      case "next-attack": actor.pendingAttackBonus=(Number(actor.pendingAttackBonus)||0)+amount; break;
+      case "next-roll": actor.pendingRollBonus=(Number(actor.pendingRollBonus)||0)+amount; break;
+      case "special-roll": {
+        const d20=rollDie(20);
+        const experience=consumeRollBonuses(actor,"roll");
+        const total=d20+amount+experience.total;
+        specialResult={label:effect.label||feature.name||"Special Roll",roll:d20,modifier:amount+experience.total,total};
+        actor.lastRoll=`<b>${esc(specialResult.label)}:</b> d20 [${d20}] ${signed(specialResult.modifier)} → <b>${total}</b>.`;
+        break;
+      }
+    }
+  });
+  renderFear();save();renderCards();renderDock();
+  if(specialResult&&dockResult)dockResult.innerHTML=actor.lastRoll;
+}
+function renderSavedSecondary(card,actor){
+  const root=card.querySelector(".saved-secondary");
+  const expRoot=card.querySelector(".saved-experiences");
+  const featureRoot=card.querySelector(".saved-features");
+  expRoot.innerHTML="";featureRoot.innerHTML="";
+  const showExperiences=actor.detailVisibility?.experiences!==false&&(actor.experiences||[]).length>0;
+  const showFeatures=actor.detailVisibility?.features!==false&&(actor.features||[]).length>0;
+  expRoot.hidden=!showExperiences;featureRoot.hidden=!showFeatures;root.hidden=!(showExperiences||showFeatures);
+  if(showExperiences){
+    const title=document.createElement("span");title.className="saved-secondary-title";title.textContent=currentLanguage==="en"?"Experiences":"Expériences";expRoot.appendChild(title);
+    actor.experiences.forEach(exp=>{
+      const label=document.createElement("label");label.className="experience-chip";
+      const checked=(actor.selectedExperiences||[]).includes(exp.id);
+      label.innerHTML=`<input type="checkbox" ${checked?"checked":""}><span>${esc(exp.name)} (${signed(Number(exp.bonus)||0)})</span>`;
+      label.addEventListener("click",event=>event.stopPropagation());
+      label.querySelector("input").addEventListener("change",event=>{
+        actor.selectedExperiences=actor.selectedExperiences||[];
+        if(event.target.checked&&!actor.selectedExperiences.includes(exp.id))actor.selectedExperiences.push(exp.id);
+        if(!event.target.checked)actor.selectedExperiences=actor.selectedExperiences.filter(value=>value!==exp.id);
+        save();
+      });
+      expRoot.appendChild(label);
+    });
+  }
+  if(showFeatures){
+    const title=document.createElement("span");title.className="saved-secondary-title";title.textContent="Features";featureRoot.appendChild(title);
+    actor.features.forEach(feature=>{
+      const button=document.createElement("button");button.type="button";button.className="feature-inline-use";
+      button.textContent=feature.name||"Feature";button.title=feature.description||feature.name||"Feature";
+      button.addEventListener("click",event=>{event.preventDefault();event.stopPropagation();applyFeatureEffects(actor,feature)});
+      featureRoot.appendChild(button);
+    });
+  }
+}
 function renderCombatantCollection(type){
   const collection=collectionFor(type);
   const container=containerFor(type);
@@ -661,15 +723,16 @@ function renderCombatantCollection(type){
     const role=card.querySelector(".combatant-role");
     role.textContent=labelFor(type);
     const visibility=a.detailVisibility||{};
-    role.hidden=visibility.role===false;
-    card.querySelector(".saved-name").hidden=visibility.name===false;
-    card.querySelector(".saved-difficulty").hidden=visibility.difficulty===false;
-    card.querySelector(".saved-thresholds").hidden=visibility.thresholds===false;
-    card.querySelector(".saved-attack").hidden=visibility.attack===false;
-    card.querySelector(".saved-damage").hidden=visibility.damage===false;
-    card.querySelector(".hp-stress").hidden=visibility.hpStress===false;
-    card.querySelector(".conditions").hidden=visibility.conditions===false;
-    card.querySelector(".saved-rolltype").hidden=visibility.rollType===false;
+    const setVisible=(element,visible)=>{element.hidden=!visible;element.style.display=visible?"":"none"};
+    setVisible(role,visibility.role!==false);
+    setVisible(card.querySelector(".saved-name"),visibility.name!==false);
+    setVisible(card.querySelector(".saved-difficulty"),visibility.difficulty!==false);
+    setVisible(card.querySelector(".saved-thresholds"),visibility.thresholds!==false);
+    setVisible(card.querySelector(".saved-attack"),visibility.attack!==false);
+    setVisible(card.querySelector(".saved-damage"),visibility.damage!==false);
+    setVisible(card.querySelector(".hp-stress"),visibility.hpStress!==false);
+    setVisible(card.querySelector(".conditions"),visibility.conditions!==false);
+    setVisible(card.querySelector(".saved-rolltype"),visibility.rollType!==false);
     card.querySelector(".saved-difficulty .inline-label").textContent=t("difficulty");
     card.querySelector(".saved-thresholds .inline-label").textContent=t("thresholds");
     card.querySelector(".conditions .inline-label").textContent=t("condition");
@@ -743,6 +806,7 @@ function renderCombatantCollection(type){
       if(a.detailVisibility?.damageType!==false&&a.damageType)detailItems.push(a.damageType);
       if(a.detailVisibility?.stats!==false)(a.extraStats||[]).forEach(stat=>{if(stat.name||stat.value)detailItems.push(`${stat.name}: ${stat.value}`)});
       extraDetails.innerHTML=detailItems.map(value=>`<span class="saved-detail-chip">${esc(value)}</span>`).join("");
+      renderSavedSecondary(card,a);
       card.querySelectorAll(".condition").forEach(button=>{
         button.classList.toggle("active",!!a.conditions[button.dataset.condition]);
       });
@@ -889,7 +953,7 @@ function closeCombatDock(){selectedId=null;selectedType="adversary";document.bod
 closeDock.onclick=closeCombatDock;
 
 function consumeRollBonuses(actor,kind){const selected=(actor.experiences||[]).filter(exp=>(actor.selectedExperiences||[]).includes(exp.id));const experienceBonus=selected.reduce((sum,exp)=>sum+(Number(exp.bonus)||0),0);if(selected.length){state.fear=clamp(state.fear-selected.length,0,MAX_FEAR);actor.selectedExperiences=[];renderFear()}const general=Number(actor.pendingRollBonus)||0;const attack=kind==="attack"?(Number(actor.pendingAttackBonus)||0):0;actor.pendingRollBonus=0;if(kind==="attack")actor.pendingAttackBonus=0;return{total:experienceBonus+general+attack}}
-function useFeature(actor,feature){const amount=Number(feature.amount)||0;switch(feature.effect){case "fear-remove":state.fear=clamp(state.fear-Math.abs(amount||1),0,MAX_FEAR);renderFear();break;case "fear-add":state.fear=clamp(state.fear+Math.abs(amount||1),0,MAX_FEAR);renderFear();break;case "stress-remove":actor.stressMarked=clamp(actor.stressMarked-Math.abs(amount||1),0,actor.stressMax);break;case "next-attack":actor.pendingAttackBonus=(Number(actor.pendingAttackBonus)||0)+amount;break;case "next-roll":actor.pendingRollBonus=(Number(actor.pendingRollBonus)||0)+amount;break}save();renderDock();renderCards()}
+function useFeature(actor,feature){applyFeatureEffects(actor,feature)}
 function bonusDescription(actor){const parts=[];if(actor.pendingAttackBonus)parts.push(`prochaine attaque ${signed(actor.pendingAttackBonus)}`);if(actor.pendingRollBonus)parts.push(`prochain jet ${signed(actor.pendingRollBonus)}`);return parts.join(" · ")}
 
 function renderDock(){
@@ -901,9 +965,7 @@ function renderDock(){
   }
 
   dockTitle.textContent=`Actions — ${actor.name} (${labelFor(selectedType)})`;
-  dockTargets.innerHTML="";dockExperiences.innerHTML="";dockFeatures.innerHTML="";
-  const showExperiences=actor.detailVisibility?.experiences===true&&(actor.experiences||[]).length>0;dockExperiences.hidden=!showExperiences;if(showExperiences){const title=document.createElement("div");title.className="dock-options-title";title.innerHTML=`<span>${currentLanguage==="en"?"Experiences":"Expériences"}</span><small>${currentLanguage==="en"?"Checked bonuses apply to the next roll and spend 1 Fear each.":"Les bonus cochés s’ajoutent au prochain jet et dépensent 1 Fear chacun."}</small>`;const list=document.createElement("div");list.className="dock-option-list";actor.experiences.forEach(exp=>{const label=document.createElement("label");label.className="experience-chip";const checked=(actor.selectedExperiences||[]).includes(exp.id);label.innerHTML=`<input type="checkbox" ${checked?"checked":""}><span>${esc(exp.name)} (${signed(Number(exp.bonus)||0)})</span>`;label.querySelector("input").onchange=event=>{actor.selectedExperiences=actor.selectedExperiences||[];if(event.target.checked&&!actor.selectedExperiences.includes(exp.id))actor.selectedExperiences.push(exp.id);if(!event.target.checked)actor.selectedExperiences=actor.selectedExperiences.filter(idValue=>idValue!==exp.id);save()};list.appendChild(label)});dockExperiences.append(title,list)}
-  const showFeatures=actor.detailVisibility?.features===true&&(actor.features||[]).length>0;dockFeatures.hidden=!showFeatures;if(showFeatures){const title=document.createElement("div");title.className="dock-options-title";const pending=bonusDescription(actor);title.innerHTML=`<span>Features</span>${pending?`<small>${pending}</small>`:""}`;dockFeatures.appendChild(title);actor.features.forEach(feature=>{const row=document.createElement("div");row.className="feature-use";row.innerHTML=`<div><strong>${esc(feature.name)}</strong>${feature.description?`<small>${esc(feature.description)}</small>`:""}</div><button type="button">${currentLanguage==="en"?"Use":"Utiliser"}</button>`;row.querySelector("button").onclick=()=>useFeature(actor,feature);dockFeatures.appendChild(row)})}
+  dockTargets.innerHTML="";dockExperiences.innerHTML="";dockFeatures.innerHTML="";dockExperiences.hidden=true;dockFeatures.hidden=true;
 
   if(selectedType==="ally"){
     const targets=state.adversaries.filter(target=>target.saved);

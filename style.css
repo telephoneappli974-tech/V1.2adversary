@@ -903,3 +903,28 @@ main{max-width:1550px;margin:auto;padding:1rem}
 @media(max-width:700px){
   .saved-extra-details{grid-column:1/-1}
 }
+
+[hidden]{display:none!important}
+.card.saved .saved-secondary{
+  grid-column:1/-1;
+  width:100%;
+  display:grid;
+  gap:.35rem;
+  padding-top:.42rem;
+  margin-top:.1rem;
+  border-top:1px solid var(--border);
+}
+.saved-experiences,.saved-features{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.saved-secondary-title{color:var(--muted);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.feature-inline-use{padding:.28rem .48rem;font-size:.72rem;background:var(--control-bg);border-color:var(--control-border);color:var(--text)}
+.feature-card{grid-template-columns:1fr;align-items:stretch}
+.feature-effects{display:grid;gap:.4rem}
+.feature-effect-row{display:grid;grid-template-columns:minmax(160px,1fr) 100px minmax(140px,1fr) auto;gap:.4rem;align-items:center}
+.feature-card textarea{min-height:75px;resize:vertical}
+@media(max-width:700px){
+  .card.saved .saved-secondary{grid-column:1/-1}
+  .saved-experiences,.saved-features{align-items:stretch}
+  .experience-chip,.feature-inline-use{min-height:2.35rem}
+  .feature-effect-row{grid-template-columns:1fr}
+  .feature-effect-row button{width:100%}
+}

@@ -13,7 +13,7 @@ const text={
     experienceName:"Nom de l’expérience",bonus:"Bonus",featureName:"Nom de la feature",
     description:"Description",noEffect:"Aucun effet automatique",fearRemove:"Retirer de la Fear",
     fearAdd:"Ajouter de la Fear",stressRemove:"Retirer du Stress",nextAttack:"Bonus à la prochaine attaque",
-    nextRoll:"Bonus au prochain jet",experiencesHelp:"Une expérience cochée pendant le combat ajoute son bonus au prochain jet et retire 1 Fear.",
+    nextRoll:"Bonus au prochain jet",specialRoll:"Jet spécial",effect:"Effet",addEffect:"+ Ajouter un effet",specialRollName:"Nom du jet",specialRollModifier:"Modificateur",experiencesHelp:"Une expérience cochée pendant le combat ajoute son bonus au prochain jet et retire 1 Fear.",
     difficulty:"Difficulté",thresholds:"Seuils",hp:"HP",stress:"Stress",attack:"Attaque",damage:"Dégâts",
     rollType:"Type de jet",normal:"Jet normal",conditions:"États",hidden:"Caché",vulnerable:"Vulnérable",restrained:"Entravé",none:"Aucun",
     showRole:"Adversary / Ally",showName:"Nom",showDifficulty:"Difficulté",showThresholds:"Seuils",showHpStress:"HP / Stress",showAttack:"Attaque",showDamage:"Dégâts",showConditions:"États",showRollType:"Type de jet",showStats:"Stats supplémentaires",showTier:"Tier",showType:"Type",showWeapon:"Type d’arme",showDamageType:"Type de dégâts",showExperiences:"Expériences",showFeatures:"Features"
@@ -28,7 +28,7 @@ const text={
     experienceName:"Experience name",bonus:"Bonus",featureName:"Feature name",
     description:"Description",noEffect:"No automatic effect",fearRemove:"Remove Fear",
     fearAdd:"Add Fear",stressRemove:"Remove Stress",nextAttack:"Bonus to next attack",
-    nextRoll:"Bonus to next roll",experiencesHelp:"A checked experience adds its bonus to the next roll and spends 1 Fear.",
+    nextRoll:"Bonus to next roll",specialRoll:"Special roll",effect:"Effect",addEffect:"+ Add effect",specialRollName:"Roll name",specialRollModifier:"Modifier",experiencesHelp:"A checked experience adds its bonus to the next roll and spends 1 Fear.",
     difficulty:"Difficulty",thresholds:"Thresholds",hp:"HP",stress:"Stress",attack:"Attack",damage:"Damage",
     rollType:"Roll Type",normal:"Normal roll",conditions:"Conditions",hidden:"Hidden",vulnerable:"Vulnerable",restrained:"Restrained",none:"None",
     showRole:"Adversary / Ally",showName:"Name",showDifficulty:"Difficulty",showThresholds:"Thresholds",showHpStress:"HP / Stress",showAttack:"Attack",showDamage:"Damage",showConditions:"Conditions",showRollType:"Roll Type",showStats:"Additional Statistics",showTier:"Tier",showType:"Type",showWeapon:"Weapon Type",showDamageType:"Damage Type",showExperiences:"Experiences",showFeatures:"Features"
@@ -60,7 +60,12 @@ function ensure(){
   item.detailVisibility=item.detailVisibility||{};
   item.extraStats=Array.isArray(item.extraStats)?item.extraStats:[];
   item.experiences=Array.isArray(item.experiences)?item.experiences:[];
-  item.features=Array.isArray(item.features)?item.features:[];
+  item.features=Array.isArray(item.features)?item.features.map(feature=>({
+    id:feature.id||uid(),name:String(feature.name||""),description:String(feature.description||""),
+    effects:Array.isArray(feature.effects)?feature.effects.map(effect=>({
+      id:effect.id||uid(),type:String(effect.type||"none"),amount:Number(effect.amount)||0,label:String(effect.label||"")
+    })):[{id:uid(),type:String(feature.effect||"none"),amount:Number(feature.amount)||0,label:""}]
+  })):[];
   item.conditions=item.conditions||{hidden:false,vulnerable:false,restrained:false};
   item.tier=Math.min(4,Math.max(1,Number(item.tier)||1));
   item.adversaryType=String(item.adversaryType||"");
@@ -106,7 +111,7 @@ function renderCurrentStats(){
   ];
   document.getElementById("currentStats").innerHTML=stats.map(([label,value])=>`<div class="current-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
 }
-function removeButton(handler){const button=document.createElement("button");button.type="button";button.textContent=text.delete;button.className="danger-btn";button.addEventListener("click",handler);return button}
+function removeButton(handler){const button=document.createElement("button");button.type="button";button.textContent=text.delete;button.className="danger-btn";button.addEventListener("click",event=>{event.preventDefault();event.stopPropagation();handler(event)});return button}
 function renderStats(){
   statsList.innerHTML="";
   item.extraStats.forEach(stat=>{
@@ -127,24 +132,46 @@ function renderExperiences(){
     row.appendChild(removeButton(()=>{item.experiences=item.experiences.filter(entry=>entry.id!==exp.id);saveState();renderExperiences()}));experiencesList.appendChild(row);
   });
 }
+function effectOptions(selected){
+  const options=[
+    ["none",text.noEffect],["fear-remove",text.fearRemove],["fear-add",text.fearAdd],
+    ["stress-remove",text.stressRemove],["next-attack",text.nextAttack],["next-roll",text.nextRoll],
+    ["special-roll",text.specialRoll]
+  ];
+  return options.map(([value,label])=>`<option value="${value}" ${value===selected?"selected":""}>${esc(label)}</option>`).join("");
+}
+function renderFeatureEffects(feature,container){
+  container.innerHTML="";
+  feature.effects.forEach(effect=>{
+    const row=document.createElement("div");row.className="feature-effect-row";
+    row.innerHTML=`<select class="feature-effect">${effectOptions(effect.type)}</select>
+      <input class="feature-amount" type="number" value="${Number(effect.amount)||0}" placeholder="${esc(text.value)}">
+      <input class="feature-label" value="${esc(effect.label||"")}" placeholder="${esc(text.specialRollName)}" ${effect.type==="special-roll"?"":"hidden"}>`;
+    const select=row.querySelector(".feature-effect");
+    const amount=row.querySelector(".feature-amount");
+    const label=row.querySelector(".feature-label");
+    select.addEventListener("change",event=>{effect.type=event.target.value;label.hidden=effect.type!=="special-roll";saveState()});
+    amount.addEventListener("input",event=>{effect.amount=Number(event.target.value)||0;saveState()});
+    label.addEventListener("input",event=>{effect.label=event.target.value;saveState()});
+    row.appendChild(removeButton(()=>{feature.effects=feature.effects.filter(entry=>entry.id!==effect.id);saveState();renderFeatureEffects(feature,container)}));
+    container.appendChild(row);
+  });
+}
 function renderFeatures(){
   featuresList.innerHTML="";
   item.features.forEach(feature=>{
-    const row=document.createElement("div");row.className="detail-row feature-row";
-    row.innerHTML=`
-      <input class="feature-name" placeholder="${esc(text.featureName)}" value="${esc(feature.name)}">
+    const row=document.createElement("div");row.className="detail-row feature-card";
+    row.innerHTML=`<input class="feature-name" placeholder="${esc(text.featureName)}" value="${esc(feature.name)}">
       <textarea class="feature-description" placeholder="${esc(text.description)}">${esc(feature.description)}</textarea>
-      <select class="feature-effect">
-        <option value="none">${text.noEffect}</option><option value="fear-remove">${text.fearRemove}</option>
-        <option value="fear-add">${text.fearAdd}</option><option value="stress-remove">${text.stressRemove}</option>
-        <option value="next-attack">${text.nextAttack}</option><option value="next-roll">${text.nextRoll}</option>
-      </select><input class="feature-amount" type="number" value="${Number(feature.amount)||1}" placeholder="${esc(text.value)}">`;
+      <div class="feature-effects"></div>
+      <button class="add-effect" type="button">${esc(text.addEffect)}</button>`;
     row.querySelector(".feature-name").addEventListener("input",event=>{feature.name=event.target.value;saveState()});
     row.querySelector(".feature-description").addEventListener("input",event=>{feature.description=event.target.value;saveState()});
-    row.querySelector(".feature-effect").value=feature.effect||"none";
-    row.querySelector(".feature-effect").addEventListener("change",event=>{feature.effect=event.target.value;saveState()});
-    row.querySelector(".feature-amount").addEventListener("input",event=>{feature.amount=Number(event.target.value)||0;saveState()});
-    row.appendChild(removeButton(()=>{item.features=item.features.filter(entry=>entry.id!==feature.id);saveState();renderFeatures()}));featuresList.appendChild(row);
+    const effectsRoot=row.querySelector(".feature-effects");
+    renderFeatureEffects(feature,effectsRoot);
+    row.querySelector(".add-effect").addEventListener("click",event=>{event.preventDefault();event.stopPropagation();feature.effects.push({id:uid(),type:"none",amount:0,label:""});saveState();renderFeatureEffects(feature,effectsRoot)});
+    row.appendChild(removeButton(event=>{item.features=item.features.filter(entry=>entry.id!==feature.id);saveState();renderFeatures()}));
+    featuresList.appendChild(row);
   });
 }
 function writeForm(){
@@ -179,7 +206,7 @@ else{
   ensure();renderIdentity();renderCurrentStats();writeForm();renderStats();renderExperiences();renderFeatures();bindAutosave();
   document.getElementById("addStat").addEventListener("click",()=>{item.extraStats.push({id:uid(),name:"",value:""});saveState();renderStats()});
   document.getElementById("addExperience").addEventListener("click",()=>{item.experiences.push({id:uid(),name:"",bonus:1});saveState();renderExperiences()});
-  document.getElementById("addFeature").addEventListener("click",()=>{item.features.push({id:uid(),name:"",description:"",effect:"none",amount:1});saveState();renderFeatures()});
+  document.getElementById("addFeature").addEventListener("click",()=>{item.features.push({id:uid(),name:"",description:"",effects:[{id:uid(),type:"none",amount:0,label:""}]});saveState();renderFeatures()});
 }
 document.getElementById("saveBtn").addEventListener("click",()=>{if(item)readForm();location.href=type==="library"?"database.html":"index.html"});
 document.getElementById("backBtn").addEventListener("click",()=>{if(item)readForm();location.href=type==="library"?"database.html":"index.html"});
