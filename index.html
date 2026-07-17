@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101114">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daggerheart Manager">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Gestionnaire d’adversaires — Daggerheart</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <h1 data-i18n="appTitle">Gestionnaire de combat — Daggerheart</h1>
+    <div class="fear-box">
+      <button id="fearMinus">−</button>
+      <strong><span data-i18n="fear">Fear</span> : <span id="fearValue">0</span></strong>
+      <button id="fearPlus">+</button>
+    </div>
+    <div class="header-actions">
+      <label class="language-picker">
+        <span data-i18n="language">Langue</span>
+        <select id="languageSelect" aria-label="Langue">
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <div class="rest-box">
+        <button id="shortRest" data-i18n="shortRest">Repos court +1d4</button>
+        <button id="longRest" data-i18n="longRest">Repos long</button>
+      </div>
+    </div>
+  </div>
+  <div id="restFeedback" class="rest-feedback" hidden></div>
+</header>
+
+<main>
+  <section class="targets-panel" id="targetsPanel">
+    <div class="targets-toolbar">
+      <div id="targetsList" class="targets-list"></div>
+      <button id="addTarget" title="Ajouter un PJ" aria-label="Ajouter un PJ">+</button>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="right">
+      <button id="addAdversary" data-i18n="addAdversary">+ Ajouter un adversaire</button>
+      <button id="addAlly" data-i18n="addAlly">+ Ajouter un allié</button>
+      <button id="openDatabase" data-i18n="database">Base de données</button>
+    </div>
+    <div class="right">
+      <button id="exportBtn" data-i18n="export">Exporter</button>
+      <button id="importBtn" data-i18n="import">Importer</button>
+      <button id="installAppBtn" type="button" hidden>Installer l’application</button>
+      <input id="importFile" type="file" accept="application/json" hidden>
+    </div>
+  </div>
+
+  <div id="saveStatus" class="save-status" data-i18n="autosaveActive">Sauvegarde automatique active</div>
+
+  <section class="combatant-section ally-section">
+    <div class="section-title-row">
+      <h2 data-i18n="allies">Alliés</h2>
+      <span class="section-note" data-i18n="alliesNote">Même fiche qu’un adversaire. Un allié sélectionné peut attaquer un adversaire.</span>
+    </div>
+    <div id="allies" class="grid"></div>
+  </section>
+
+  <section class="combatant-section adversary-section">
+    <div class="section-title-row">
+      <h2 data-i18n="adversaries">Adversaires</h2>
+    </div>
+    <div id="cards" class="grid"></div>
+  </section>
+
+  <section class="distance-tool" id="distanceTool">
+    <div class="distance-tool-head">
+      <div>
+        <h2 data-i18n="distanceMap">Carte des distances</h2>
+        <p data-i18n="mapHelp">Clique sur la carte pour l’activer. Molette : zoom. Déplace les points à la souris.</p>
+      </div>
+      <div class="distance-tool-actions">
+        <span id="distanceZoomLabel">12 px/m</span>
+        <button id="lockDistanceMap" type="button" data-i18n="lock">Verrouiller</button>
+        <button id="centerDistanceMap" type="button" data-i18n="center">Centrer</button>
+        <button id="measureDistance" type="button" data-i18n="measure">Mesurer</button>
+        <button id="toggleRanges" type="button" data-i18n="ranges">Portées</button>
+        <button id="resetDistanceMap" type="button" data-i18n="reset">Réinitialiser</button>
+      </div>
+    </div>
+
+    <div class="distance-legend">
+      <span data-i18n="meleeLegend">Mêlée : 1,5 m</span>
+      <span data-i18n="veryCloseLegend">Très proche : 3 m</span>
+      <span data-i18n="closeLegend">Proche : 9 m</span>
+      <span data-i18n="farLegend">Loin : 30 m</span>
+      <strong id="distanceMeasureResult"></strong>
+    </div>
+
+    <div id="distanceMap" class="distance-map" tabindex="0" aria-label="Carte des distances">
+      <div id="distanceWorld" class="distance-world">
+        <div class="range-circle range-far"></div>
+        <div class="range-circle range-close"></div>
+        <div class="range-circle range-very-close"></div>
+        <div class="range-circle range-melee"></div>
+        <div id="pinnedRanges" class="pinned-ranges"></div>
+        <div id="distanceTokens" class="distance-tokens"></div>
+      </div>
+      <div id="distanceEmpty" class="distance-empty" data-i18n="mapEmpty">Ajoute au moins un PJ, allié ou adversaire enregistré.</div>
+    </div>
+  </section>
+
+</main>
+
+
+
+<div class="modal-overlay" id="addAdversaryModal" hidden>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="addAdversaryModalTitle">
+    <div class="modal-head">
+      <strong id="addAdversaryModalTitle">Ajouter un adversaire</strong>
+      <button class="modal-close" id="closeAddAdversaryModal" type="button" title="Fermer" aria-label="Fermer">×</button>
+    </div>
+    <button id="newCombatAdversary" type="button">+ Nouvel adversaire</button>
+    <div class="modal-toolbar">
+      <input id="addAdversarySearch" type="search" placeholder="Rechercher dans la base de données">
+    </div>
+    <div id="addAdversaryList" class="library-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="databaseModal" hidden>
+  <div class="modal-panel large" role="dialog" aria-modal="true" aria-labelledby="databaseModalTitle">
+    <div class="modal-head">
+      <strong id="databaseModalTitle">Base de données des adversaires</strong>
+      <button class="modal-close" id="closeDatabaseModal" type="button" title="Fermer" aria-label="Fermer">×</button>
+    </div>
+    <div class="database-note">Les modifications faites ici n’ajoutent rien à la page de jeu. Les adversaires déjà présents dans la partie conservent leurs HP, leur stress et leurs états actuels.</div>
+    <div class="modal-toolbar">
+      <button id="newLibraryAdversary" type="button">+ Créer dans la base</button>
+      <input id="databaseSearch" type="search" placeholder="Rechercher un adversaire">
+    </div>
+    <div id="databaseList" class="library-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="libraryEditorModal" hidden>
+  <form class="modal-panel" id="libraryEditorForm" role="dialog" aria-modal="true" aria-labelledby="libraryEditorTitle">
+    <div class="modal-head">
+      <strong id="libraryEditorTitle">Adversaire de la base</strong>
+      <button class="modal-close" id="closeLibraryEditor" type="button" title="Fermer" aria-label="Fermer">×</button>
+    </div>
+    <div class="library-editor-grid">
+      <label class="wide">Nom<input name="name" required placeholder="Nom de l’adversaire"></label>
+      <label>Difficulté<input name="difficulty" type="number" min="0"></label>
+      <label>Modificateur d’attaque<input name="attackMod" type="number"></label>
+      <label>Seuil majeur<input name="major" type="number" min="0"></label>
+      <label>Seuil sévère<input name="severe" type="number" min="0"></label>
+      <label>HP max<input name="hpMax" type="number" min="0"></label>
+      <label>Stress max<input name="stressMax" type="number" min="0"></label>
+      <label>Nombre de dés<input name="damageCount" type="number" min="1"></label>
+      <label>Faces des dés<input name="damageSides" type="number" min="2"></label>
+      <label>Modificateur de dégâts<input name="damageMod" type="number"></label>
+      <label>Avantage / désavantage<input name="advantage" type="number" min="-10" max="10"></label>
+    </div>
+    <div class="library-editor-actions">
+      <button id="cancelLibraryEditor" type="button">Annuler</button>
+      <button type="submit">Enregistrer dans la base</button>
+    </div>
+  </form>
+</div>
+
+<div class="rest-modal" id="longRestModal" hidden>
+  <div class="rest-modal-panel" role="dialog" aria-modal="true" aria-labelledby="longRestModalTitle">
+    <div class="rest-modal-head">
+      <strong id="longRestModalTitle">Repos long</strong>
+      <button id="closeLongRestModal" type="button" title="Fermer" aria-label="Fermer">×</button>
+    </div>
+    <div class="small-note">PJ enregistrés et évasion :</div>
+    <div id="longRestPlayerList" class="long-rest-player-list"></div>
+    <label>Nombre de PJ
+      <input id="longRestPlayerCount" type="number" min="0" step="1">
+    </label>
+    <div id="longRestError" class="long-rest-error"></div>
+    <div class="long-rest-actions">
+      <button id="cancelLongRest" type="button">Annuler</button>
+      <button id="confirmLongRest" type="button">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<div class="combat-dock" id="combatDock">
+  <div class="dock-inner">
+    <div class="dock-head">
+      <div class="dock-title" id="dockTitle">Adversaire</div>
+      <button id="closeDock" title="Fermer" aria-label="Fermer">×</button>
+    </div>
+    <div id="dockExperiences" class="dock-options" hidden></div>
+    <div id="dockFeatures" class="dock-options" hidden></div>
+    <div class="dock-targets" id="dockTargets"></div>
+    <div class="dock-actions">
+      <button id="dockAttackNoTarget">Attaque sans cible</button>
+      <button id="dockRollDamage">Lancer les dégâts</button>
+      <input id="dockDamageTaken" type="number" min="0" placeholder="Dégâts subis">
+      <button id="dockApplyDamage">Appliquer</button>
+    </div>
+    <div class="result dock-result" id="dockResult">Choisis une action.</div>
+  </div>
+</div>
+
+<template id="cardTemplate">
+  <article class="card">
+    <button class="card-close danger-btn" title="Supprimer">×</button>
+    <div class="card-head">
+      <input class="name" placeholder="Nom de l’adversaire">
+      <button class="saveAdversary">Enregistrer</button>
+      <button class="duplicate">Dupliquer</button>
+      <button class="remove danger-btn">Supprimer</button>
+    </div>
+    <div class="card-body">
+      <div class="stats">
+        <label>Difficulté<input class="difficulty" type="number" min="0"></label>
+        <label>Seuil majeur<input class="major" type="number" min="0"></label>
+        <label>Seuil sévère<input class="severe" type="number" min="0"></label>
+        <label>HP max<input class="hpMax" type="number" min="0"></label>
+        <label>Stress max<input class="stressMax" type="number" min="0"></label>
+      </div>
+      <div class="track"><button class="hpMinus">−</button><span class="hpDisplay"></span><button class="hpPlus">+</button></div>
+      <div class="track"><button class="stressMinus">−</button><span class="stressDisplay"></span><button class="stressPlus">+</button></div>
+
+      <div class="attack-grid">
+        <label>Modificateur d’attaque<input class="attackMod" type="number"></label>
+      </div>
+
+      <div class="dice-builder">
+        <div class="label">Dés de dégâts</div>
+        <span class="symbol">(</span>
+        <div class="dice-stepper"><button class="damageCountUp">▲</button><input class="damageCount" type="number" min="1"><button class="damageCountDown">▼</button></div>
+        <span class="symbol">)D(</span>
+        <div class="dice-stepper"><button class="damageSidesUp">▲</button><input class="damageSides" type="number" min="2"><button class="damageSidesDown">▼</button></div>
+        <span class="symbol">)+(</span>
+        <div class="dice-stepper"><button class="damageModUp">▲</button><input class="damageMod" type="number"><button class="damageModDown">▼</button></div>
+        <span class="symbol">)</span>
+      </div>
+
+      <div class="advantage"><button class="advMinus">−</button><strong class="advDisplay"></strong><button class="advPlus">+</button></div>
+      <div class="action-row"><button class="rollAttack">Attaque sans cible</button><button class="rollDamage">Lancer les dégâts</button></div>
+      <div class="result rollResult">Aucun jet.</div>
+      <div class="damage-input"><input class="damageTaken" type="number" min="0" placeholder="Dégâts subis"><button class="applyDamage">Appliquer</button></div>
+      <div class="result damageResult">Aucun dégât reçu.</div>
+    </div>
+
+    <div class="saved-summary">
+      <span class="combatant-role"></span>
+      <div class="saved-name"></div>
+
+      <div class="inline-control saved-difficulty">
+        <span class="inline-label">Difficulté</span>
+        <input class="difficultyQuick" type="number" min="0">
+      </div>
+
+      <div class="inline-control saved-thresholds">
+        <span class="inline-label">Seuils</span>
+        <span class="inline-value thresholdsValue"></span>
+      </div>
+
+      <div class="inline-control saved-attack">
+        <span class="inline-value savedAttackValue"></span>
+      </div>
+
+      <div class="inline-control saved-damage">
+        <span class="inline-value savedDamageValue"></span>
+      </div>
+
+      <div class="hp-stress">
+        <div class="inline-control">
+          <span class="inline-label">HP</span>
+          <button class="savedHpMinus">−</button>
+          <span class="inline-value savedHpValue"></span>
+          <button class="savedHpPlus">+</button>
+        </div>
+        <div class="inline-control">
+          <span class="inline-label">Stress</span>
+          <button class="savedStressMinus">−</button>
+          <span class="inline-value savedStressValue"></span>
+          <button class="savedStressPlus">+</button>
+        </div>
+      </div>
+
+      <div class="conditions">
+        <span class="inline-label">État</span>
+        <button class="condition" data-condition="hidden">Caché</button>
+        <button class="condition" data-condition="vulnerable">Vulnérable</button>
+        <button class="condition" data-condition="restrained">Entravé</button>
+      </div>
+
+      <div class="inline-control saved-rolltype">
+        <button class="savedAdvMinus">−</button>
+        <span class="inline-value savedAdvValue"></span>
+        <button class="savedAdvPlus">+</button>
+      </div>
+
+      <div class="saved-extra-details"></div>
+      <div class="saved-actions">
+        <button class="detailsSaved" title="Détails" aria-label="Détails">☰</button>
+        <button class="editAdversary" title="Modifier l’adversaire" aria-label="Modifier l’adversaire">✎</button>
+        <button class="duplicateSaved" title="Dupliquer l’adversaire" aria-label="Dupliquer l’adversaire">⧉</button>
+        <button class="deleteSaved danger-btn" title="Supprimer" aria-label="Supprimer">×</button>
+      </div>
+    </div>
+  </article>
+</template>
+
+<script src="script.js"></script>
+</body>
+</html>

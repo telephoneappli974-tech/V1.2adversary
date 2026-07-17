@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101114">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <title>Détails — Daggerheart</title>
+</head>
+<body>
+<header>
+  <div class="topbar detail-topbar">
+    <button id="backBtn" type="button">← <span id="backText">Retour</span></button>
+    <h1 id="pageTitle">Détails</h1>
+    <button id="saveBtn" type="button">Enregistrer</button>
+  </div>
+</header>
+<main class="details-page">
+  <div id="notFound" class="result" hidden>Élément introuvable.</div>
+  <form id="detailsForm" novalidate>
+    <section class="detail-identity">
+      <span id="identityRole" class="detail-role">Adversary</span>
+      <div>
+        <h2 id="identityName">—</h2>
+        <div id="identityConditions" class="detail-conditions"></div>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <div class="detail-section-head"><h2 id="currentStatsTitle">Statistiques actuelles</h2></div>
+      <div id="currentStats" class="current-stats"></div>
+    </section>
+
+    <section class="detail-section">
+      <div class="detail-section-head"><h2 id="classificationTitle">Classification</h2></div>
+      <div class="detail-grid">
+        <label><span id="tierLabel">Tier</span><input name="tier" type="number" min="1" max="4" step="1"></label>
+        <label><span id="typeLabel">Type</span>
+          <select name="adversaryType">
+            <option value="">—</option>
+            <option value="Bruiser">Bruiser</option>
+            <option value="Horde">Horde</option>
+            <option value="Leader">Leader</option>
+            <option value="Minion">Minion</option>
+            <option value="Ranged">Ranged</option>
+            <option value="Skulk">Skulk</option>
+            <option value="Social">Social</option>
+            <option value="Solo">Solo</option>
+            <option value="Standard">Standard</option>
+            <option value="Support">Support</option>
+          </select>
+        </label>
+        <label><span id="weaponLabel">Type d’arme</span><input name="weaponType"></label>
+        <label><span id="damageTypeLabel">Type de dégâts</span>
+          <select name="damageType">
+            <option value="">—</option>
+            <option value="magic">Magic</option>
+            <option value="physical">Physical</option>
+            <option value="tech">Tech</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <div class="detail-section-head"><h2 id="displayTitle">Affichage dans le panneau de combat</h2></div>
+      <div class="toggle-grid">
+        <label><input type="checkbox" name="showRole"><span id="showRoleLabel">Adversary / Ally</span></label>
+        <label><input type="checkbox" name="showName"><span id="showNameLabel">Nom</span></label>
+        <label><input type="checkbox" name="showDifficulty"><span id="showDifficultyLabel">Difficulté</span></label>
+        <label><input type="checkbox" name="showThresholds"><span id="showThresholdsLabel">Seuils</span></label>
+        <label><input type="checkbox" name="showHpStress"><span id="showHpStressLabel">HP / Stress</span></label>
+        <label><input type="checkbox" name="showAttack"><span id="showAttackLabel">Attaque</span></label>
+        <label><input type="checkbox" name="showDamage"><span id="showDamageLabel">Dégâts</span></label>
+        <label><input type="checkbox" name="showConditions"><span id="showConditionsLabel">États</span></label>
+        <label><input type="checkbox" name="showRollType"><span id="showRollTypeLabel">Type de jet</span></label>
+        <label><input type="checkbox" name="showStats"><span id="showStatsLabel">Stats supplémentaires</span></label>
+        <label><input type="checkbox" name="showTier"><span id="showTierLabel">Tier</span></label>
+        <label><input type="checkbox" name="showType"><span id="showTypeLabel">Type</span></label>
+        <label><input type="checkbox" name="showWeapon"><span id="showWeaponLabel">Type d’arme</span></label>
+        <label><input type="checkbox" name="showDamageType"><span id="showDamageTypeLabel">Type de dégâts</span></label>
+        <label><input type="checkbox" name="showExperiences"><span id="showExperiencesLabel">Expériences</span></label>
+        <label><input type="checkbox" name="showFeatures"><span id="showFeaturesLabel">Features</span></label>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <div class="detail-section-head"><h2 id="extraStatsTitle">Stats supplémentaires</h2><button id="addStat" type="button">+ Ajouter</button></div>
+      <div id="statsList" class="detail-list"></div>
+    </section>
+
+    <section class="detail-section">
+      <div class="detail-section-head"><h2 id="experiencesTitle">Expériences</h2><button id="addExperience" type="button">+ Ajouter</button></div>
+      <p id="experiencesHelp" class="small-note">Une expérience cochée pendant le combat ajoute son bonus au prochain jet et retire 1 Fear.</p>
+      <div id="experiencesList" class="detail-list"></div>
+    </section>
+
+    <section class="detail-section">
+      <div class="detail-section-head"><h2 id="featuresTitle">Features</h2><button id="addFeature" type="button">+ Ajouter</button></div>
+      <div id="featuresList" class="detail-list"></div>
+    </section>
+  </form>
+</main>
+<script src="details.js"></script>
+</body>
+</html>
